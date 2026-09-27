@@ -11,5 +11,14 @@ if [ "$1" = "--if-changed" ] && ! grep -qE '^(src/|pom\.xml$|\.mvn/)'; then
   exit 0
 fi
 
+# Silencieux si tout passe ; sinon la fin du journal, et le chemin du journal complet
 echo "▶ Build + tests (./mvnw verify)…"
-./mvnw -B -q -ntp verify
+log=$(mktemp "${TMPDIR:-/tmp}/check.XXXXXX")
+if ./mvnw -B -ntp verify >"$log" 2>&1; then
+  echo "✔ Build + tests OK"
+  rm -f "$log"
+else
+  sed '/To see the full stack trace/,$d' "$log" | grep -E '\[ERROR\]|FAIL' | tail -20 >&2
+  echo "Journal complet : $log" >&2
+  exit 1
+fi
