@@ -24,8 +24,16 @@ et `.github/workflows/ci.yml` compile, vérifie le formatage et teste chaque PR 
 
 ## Dépendances
 
-Dependabot (`.github/dependabot.yml`) ouvre chaque lundi une PR groupée vers `develop` :
-`build(deps): …` pour Maven, `ci(deps): …` pour GitHub Actions. Ces types ne créent pas de version.
+Dependabot (`.github/dependabot.yml`) ouvre chaque lundi des PR groupées vers `develop`.
+Le préfixe dit si le livrable change, donc s'il faut une nouvelle version :
+
+| PR Dependabot                         | Préfixe            | Version                                  |
+|---------------------------------------|--------------------|------------------------------------------|
+| Dépendance embarquée dans le jar      | `fix(deps): …`     | PATCH : le jar change, il faut le redéployer |
+| Dépendance de test ou de build        | `build(deps-dev): …` | aucune : le jar ne change pas          |
+| GitHub Actions                        | `ci(deps): …`      | aucune                                   |
+
+Production et développement sont dans des groupes séparés : une PR ne mélange jamais les deux.
 La fusion reste humaine : relire le changelog des dépendances, vérifier la CI, puis fusionner (squash).
 Sur ces PR uniquement, la CI accepte un titre de plus de 72 caractères.
 
@@ -131,13 +139,13 @@ Basée sur [Conventional Commits](https://www.conventionalcommits.org/fr/v1.0.0/
 | Type       | Usage                                              | Version |
 |------------|----------------------------------------------------|---------|
 | `feat`     | Nouvelle fonctionnalité                            | MINOR   |
-| `fix`      | Correction de bug                                  | PATCH   |
+| `fix`      | Correction de bug, mise à jour d'une dépendance embarquée | PATCH   |
 | `perf`     | Amélioration de performance                        | PATCH   |
 | `refactor` | Restructuration sans changement de comportement    | —       |
 | `test`     | Ajout ou modification de tests                     | —       |
 | `docs`     | Documentation                                      | —       |
 | `style`    | Formatage, sans impact sur le code                 | —       |
-| `build`    | Maven, dépendances                                 | —       |
+| `build`    | Maven, dépendances de test ou de build             | —       |
 | `ci`       | Pipeline CI/CD                                     | —       |
 | `chore`    | Maintenance diverse                                | —       |
 | `revert`   | Annulation d'un commit                             | —       |
@@ -155,7 +163,7 @@ Un `!` après le type (`feat(api)!:`) ou un pied `BREAKING CHANGE:` signale un c
 ```
 feat(auth): ajouter la connexion par JWT
 fix(user): empêcher la création d'un email en double
-build(deps): mettre à jour spring-boot en 4.1.2
+fix(deps): mettre à jour spring-boot en 4.1.2
 refactor(api)!: renommer /users en /accounts
 
 BREAKING CHANGE: les clients doivent utiliser /accounts

@@ -1,6 +1,11 @@
-# Mises à jour de dépendances : une PR groupée par écosystème et par semaine, vers develop.
+# Mises à jour de dépendances : des PR groupées chaque semaine, vers develop.
 # La fusion reste humaine : relire le changelog, vérifier la CI, puis fusionner (squash).
-# Préfixe build(deps) → conforme à la convention de commit ; pas de nouvelle version à lui seul.
+#
+# Le préfixe dit si le livrable change, donc s'il faut une version (tag.yml) :
+#   fix(deps)       dépendance embarquée dans le jar   → version corrective, jar redéployable
+#   build(deps-dev) dépendance de test / de build      → pas de version, le jar ne change pas
+#   ci(deps)        GitHub Actions                     → pas de version
+# Les groupes séparent production et développement : une PR ne mélange jamais les deux préfixes.
 version: 2
 updates:
   - package-ecosystem: maven
@@ -12,14 +17,25 @@ updates:
       timezone: Europe/Paris
     open-pull-requests-limit: 5
     commit-message:
-      prefix: build
+      prefix: fix
+      prefix-development: build
       include: scope
     groups:
-      maven:
+      prod:
         applies-to: version-updates
+        dependency-type: production
+        patterns: ["*"]
+      dev:
+        applies-to: version-updates
+        dependency-type: development
         patterns: ["*"]
       securite:
         applies-to: security-updates
+        dependency-type: production
+        patterns: ["*"]
+      securite-dev:
+        applies-to: security-updates
+        dependency-type: development
         patterns: ["*"]
 
   - package-ecosystem: github-actions
