@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Après un git pull : supprime les branches locales dont la branche GitHub a été supprimée (PR fusionnée).
+# Une branche n'est supprimée que si son travail est déjà dans la branche courante (merge ou squash) ;
+# sinon elle est seulement signalée : aucun travail local ne peut être perdu.
+current=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+left=""
+
+for b in $(git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads | awk '$2 == "[gone]" { print $1 }'); do
+  case "$b" in main|develop|"$current") continue ;; esac
+
+  if git merge-base --is-ancestor "$b" HEAD; then
+    merged=1                                   # fusion classique (merge commit)
+  else
+    # Squash : on rejoue le diff de la branche en un commit et on cherche un équivalent dans HEAD
+    base=$(git merge-base HEAD "$b")
+    squashed=$(git commit-tree "$b^{tree}" -p "$base" -m squash)
+    case "$(git cherry HEAD "$squashed")" in -*) merged=1 ;; *) merged=0 ;; esac
+  fi
+
+  if [ "$merged" = 1 ] && git branch -q -D "$b"; then
+    echo "🧹 Branche locale supprimée (fusionnée) : $b"
+  else
+    left="$left $b"
+  fi
+done
+
+if [ -n "$left" ]; then
+  echo "⚠ Supprimées sur GitHub mais absentes de '$current' :$left" >&2
+  echo "  → si c'est voulu : git branch -D$left" >&2
+fi
+exit 0

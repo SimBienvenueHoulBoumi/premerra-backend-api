@@ -3,7 +3,7 @@
 ## Installation
 
 Rien à faire : le premier `./mvnw` (build, tests…) active les hooks versionnés dans `.githooks/`
-et le modèle de message `.gitmessage` (profil `git-hooks` du `pom.xml`).
+et le modèle de message `.gitmessage`, et `fetch.prune` (profil `git-hooks` du `pom.xml`).
 Sans Maven : `./scripts/setup-git.sh`.
 
 | Hook         | Rôle                                                                              |
@@ -11,17 +11,30 @@ Sans Maven : `./scripts/setup-git.sh`.
 | `commit-msg` | Le message respecte la convention de commit                                       |
 | `pre-commit` | Aucun commit direct sur `main`/`develop` ; reformate et ré-indexe le code Java (`scripts/format.sh`) |
 | `pre-push`   | Nom de branche valide ; aucun push sur `main`/`develop` ; build + tests (`scripts/check.sh`) si les commits poussés touchent `src/`, `pom.xml` ou `.mvn/` |
+| `post-merge` | Après `git pull` : supprime les branches locales fusionnées et supprimées sur GitHub (merge ou squash) ; une branche non fusionnée est seulement signalée |
 
 Un fichier en partie indexé (`git add -p`) qui doit être reformaté bloque le commit : vérifier puis `git add`.
 Les commandes propres à la techno sont isolées dans `scripts/` : les hooks restent génériques.
+
+Aucun hook git ne se déclenche à la création d'une PR : c'est `scripts/pr.sh` qui la crée avec la bonne cible
+(déduite du type de branche) et un titre validé par `commit-msg`. En squash, ce titre devient le commit sur `develop`
+et décide de la version : le script retient le commit le plus impactant (`!` > `feat` > `fix`).
 
 Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
 et `.github/workflows/ci.yml` compile, vérifie le formatage et teste chaque PR et chaque push sur `main`/`develop`.
 
 ## Dépendances
 
-Dependabot (`.github/dependabot.yml`) ouvre chaque lundi une PR groupée vers `develop` :
-`build(deps): …` pour Maven, `ci(deps): …` pour GitHub Actions. Ces types ne créent pas de version.
+Dependabot (`.github/dependabot.yml`) ouvre chaque lundi des PR groupées vers `develop`.
+Le préfixe dit si le livrable change, donc s'il faut une nouvelle version :
+
+| PR Dependabot                         | Préfixe            | Version                                  |
+|---------------------------------------|--------------------|------------------------------------------|
+| Dépendance embarquée dans le jar      | `fix(deps): …`     | PATCH : le jar change, il faut le redéployer |
+| Dépendance de test ou de build        | `build(deps-dev): …` | aucune : le jar ne change pas          |
+| GitHub Actions                        | `ci(deps): …`      | aucune                                   |
+
+Production et développement sont dans des groupes séparés : une PR ne mélange jamais les deux.
 La fusion reste humaine : relire le changelog des dépendances, vérifier la CI, puis fusionner (squash).
 Sur ces PR uniquement, la CI accepte un titre de plus de 72 caractères.
 
@@ -61,8 +74,7 @@ develop ──●──●─────●──────●─────
 git switch develop && git pull
 git switch -c feature/auth-jwt
 # ... commits ...
-git push -u origin feature/auth-jwt
-gh pr create --base develop --title "feat(auth): ajouter la connexion par JWT"
+./scripts/pr.sh   # pousse + PR vers develop, titre = commit le plus impactant (vérifié en local)
 # → fusion (squash) puis suppression automatique de la branche
 ```
 
@@ -72,10 +84,7 @@ gh pr create --base develop --title "feat(auth): ajouter la connexion par JWT"
 git switch develop && git pull
 git switch -c release/1.1.0
 # derniers correctifs éventuels (la version du pom est injectée par la CI depuis le tag)
-git push -u origin release/1.1.0
-
-gh pr create --base main    --title "chore(release): version 1.1.0"
-gh pr create --base develop --title "chore(release): version 1.1.0"
+./scripts/pr.sh "chore(release): version 1.1.0"   # pousse + PR vers main ET develop
 # → fusionner les deux PR (merge commit, pas squash) : le tag est créé automatiquement
 ```
 
@@ -85,12 +94,26 @@ gh pr create --base develop --title "chore(release): version 1.1.0"
 git switch main && git pull
 git switch -c hotfix/token-expire
 git commit -am "fix(auth): corriger l'expiration du token"
-git push -u origin hotfix/token-expire
-
-gh pr create --base main    --title "fix(auth): corriger l'expiration du token"
-gh pr create --base develop --title "fix(auth): corriger l'expiration du token"
+./scripts/pr.sh   # pousse + PR vers main ET develop
 # → fusionner les deux PR : le tag est créé automatiquement
 ```
+
+### Livraison : PR de release automatique
+
+À chaque push sur `develop`, `.github/workflows/release-pr.yml` crée ou met à jour la PR `develop` → `main`
+intitulée `chore(release): vX.Y.Z`, avec le changelog (changements cassants, nouveautés, corrections, maintenance).
+S'il n'y a que de la maintenance, aucune PR n'est ouverte : il n'y a rien à publier.
+
+**Livrer = fusionner cette PR en merge commit.** Le moment de la livraison reste une décision humaine.
+
+Version et changelog viennent de `scripts/next-version.sh` et `scripts/release-notes.sh`, les mêmes que `tag.yml` :
+la version annoncée dans la PR est celle qui sera publiée.
+
+Jeton : une PR créée avec le `GITHUB_TOKEN` par défaut ne déclenche pas les checks, pourtant obligatoires pour
+fusionner. `./scripts/setup-github.sh` demande un jeton *fine-grained* limité au dépôt
+(**Pull requests : Read and write**, **Contents : Read**) et l'enregistre dans le secret `RELEASE_PR_TOKEN`.
+Sans jeton, il autorise les Actions à créer des PR : la PR de release s'ouvre, mais ses checks ne se lancent
+qu'après une action humaine dessus (modifier le titre, fermer/rouvrir).
 
 ### Tags automatiques
 
@@ -103,10 +126,17 @@ gh pr create --base develop --title "fix(auth): corriger l'expiration du token"
 | sinon au moins un `fix` ou `perf`              | PATCH (`v1.1.1`) |
 | uniquement `docs`, `chore`, `refactor`…        | pas de tag       |
 
-Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar.
+Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar
+et le même changelog que la PR de release.
 Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
+
+Tout ce qui suit se configure en une commande, par un admin du dépôt (idempotent, `--dry-run` pour prévisualiser) :
+
+```bash
+./scripts/setup-github.sh
+```
 
 `main` et `develop` sont en lecture seule (règle de dépôt « branches protégées ») :
 - modification uniquement par Pull Request, pour tout le monde (push direct refusé)
@@ -116,8 +146,14 @@ Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que
 
 Les tags `v*` sont réservés au workflow `tag.yml` (règle de dépôt « tags de version ») : création, modification et suppression manuelles refusées.
 
-La branche par défaut est `develop` : les PR s'y ouvrent par défaut, et la branche source est supprimée après fusion.
+La branche par défaut est `develop` : les PR s'y ouvrent par défaut.
+La branche source d'une PR fusionnée est supprimée par `.github/workflows/cleanup-branches.yml`
+(sauf `main`, `develop` et une branche encore source d'une autre PR ouverte, cas de `release/*` et `hotfix/*`).
 Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
+
+PR ouverte vers la mauvaise cible (typiquement le bouton « Compare & pull request », qui vise la branche par défaut) :
+le check `conventions` la corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermée ;
+sinon → redirigée vers la bonne branche, avec un titre recalculé s'il est invalide (`scripts/pr-title.sh`).
 
 ## Convention de commit
 
@@ -134,13 +170,13 @@ Basée sur [Conventional Commits](https://www.conventionalcommits.org/fr/v1.0.0/
 | Type       | Usage                                              | Version |
 |------------|----------------------------------------------------|---------|
 | `feat`     | Nouvelle fonctionnalité                            | MINOR   |
-| `fix`      | Correction de bug                                  | PATCH   |
+| `fix`      | Correction de bug, mise à jour d'une dépendance embarquée | PATCH   |
 | `perf`     | Amélioration de performance                        | PATCH   |
 | `refactor` | Restructuration sans changement de comportement    | —       |
 | `test`     | Ajout ou modification de tests                     | —       |
 | `docs`     | Documentation                                      | —       |
 | `style`    | Formatage, sans impact sur le code                 | —       |
-| `build`    | Maven, dépendances                                 | —       |
+| `build`    | Maven, dépendances de test ou de build             | —       |
 | `ci`       | Pipeline CI/CD                                     | —       |
 | `chore`    | Maintenance diverse                                | —       |
 | `revert`   | Annulation d'un commit                             | —       |
@@ -158,7 +194,7 @@ Un `!` après le type (`feat(api)!:`) ou un pied `BREAKING CHANGE:` signale un c
 ```
 feat(auth): ajouter la connexion par JWT
 fix(user): empêcher la création d'un email en double
-build(deps): mettre à jour spring-boot en 4.1.2
+fix(deps): mettre à jour spring-boot en 4.1.2
 refactor(api)!: renommer /users en /accounts
 
 BREAKING CHANGE: les clients doivent utiliser /accounts

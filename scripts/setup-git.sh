@@ -6,6 +6,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 git config core.hooksPath .githooks
 git config commit.template .gitmessage
+git config fetch.prune true          # branches supprimées sur GitHub → références locales nettoyées
 chmod +x .githooks/*
 
 echo "✔ Hooks git activés (.githooks) et modèle de commit configuré (.gitmessage)"
