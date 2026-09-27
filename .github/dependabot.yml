@@ -1,0 +1,37 @@
+# Mises à jour de dépendances : une PR groupée par écosystème et par semaine, vers develop.
+# La fusion reste humaine : relire le changelog, vérifier la CI, puis fusionner (squash).
+# Préfixe build(deps) → conforme à la convention de commit ; pas de nouvelle version à lui seul.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      maven:
+        applies-to: version-updates
+        patterns: ["*"]
+      securite:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Paris
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
