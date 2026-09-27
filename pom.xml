@@ -52,6 +52,27 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<!-- Java 21 exigé dès le début du build : message clair au lieu d'une UnsupportedClassVersionError -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>exiger-java</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireJavaVersion>
+									<version>[${java.version},)</version>
+									<message>Java ${java.version} requis (Java ${java.specification.version} utilisé). Corriger avec : export JAVA_HOME=$(/usr/libexec/java_home -v ${java.version})</message>
+								</requireJavaVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<!-- Formatage : ./mvnw spotless:apply corrige, verify échoue si le code n'est pas formaté -->
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
