@@ -16,7 +16,7 @@ jobs:
       # Titres Dependabot (« bump <groupId:artifactId> from X to Y ») : format vérifié, longueur relâchée
       COMMIT_MSG_MAX_LENGTH: ${{ startsWith(github.head_ref, 'dependabot/') && 200 || 72 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
