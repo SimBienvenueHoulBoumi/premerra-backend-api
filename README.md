@@ -64,8 +64,16 @@ Versions publiées : [Releases](https://github.com/SimBienvenueHoulBoumi/premerr
 | `./mvnw spotless:apply`   | Formate tout le code                         |
 | `./mvnw verify`           | Build + formatage + tests (comme la CI)      |
 | `./scripts/check.sh`      | Ce que lance le hook `pre-push`              |
+| `./scripts/setup-github.sh` | Configure le dépôt GitHub (idempotent, `--dry-run`) |
 | `./scripts/pr.sh [titre]` | Pousse et ouvre la PR (titre déduit des commits sinon) |
 | `git commit --no-verify`  | Contourne les hooks (la CI revérifie tout)   |
+
+## Configuration GitHub (une fois, admin)
+
+```bash
+./scripts/setup-github.sh --dry-run   # prévisualiser
+./scripts/setup-github.sh             # appliquer : branche par défaut, protections, jeton de la PR de release
+```
 
 ## Contribuer
 
