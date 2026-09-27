@@ -1,0 +1,78 @@
+name: tag
+
+# Crée le tag vX.Y.Z sur main à partir des commits depuis le dernier tag (Conventional Commits) :
+#   type! ou BREAKING CHANGE → MAJOR, feat → MINOR, fix/perf → PATCH, autres types → pas de tag.
+# Puis construit le jar à cette version et publie la GitHub Release.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculer la version
+        id: version
+        run: |
+          last=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "")
+          range=${last:+$last..}HEAD
+          subjects=$(git log --no-merges --format=%s "$range")
+          bodies=$(git log --no-merges --format=%b "$range")
+
+          if printf '%s\n' "$subjects" | grep -qE '^[a-z]+(\([a-z0-9-]+\))?!: ' \
+             || printf '%s\n' "$bodies" | grep -qE '^BREAKING[ -]CHANGE: '; then
+            bump=major
+          elif printf '%s\n' "$subjects" | grep -qE '^feat(\([a-z0-9-]+\))?: '; then
+            bump=minor
+          elif printf '%s\n' "$subjects" | grep -qE '^(fix|perf)(\([a-z0-9-]+\))?: '; then
+            bump=patch
+          else
+            echo "Aucun feat/fix/perf/breaking depuis ${last:-le début} : pas de tag."; exit 0
+          fi
+
+          IFS=. read -r major minor patch <<< "${last#v}"
+          major=${major:-0}; minor=${minor:-0}; patch=${patch:-0}
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          echo "version=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
+          echo "::notice::v$major.$minor.$patch ($bump depuis ${last:-aucun tag})"
+
+      - uses: actions/setup-java@v4
+        if: steps.version.outputs.version
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build et tests
+        if: steps.version.outputs.version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./mvnw -B -ntp verify -Drevision="$VERSION"
+
+      - name: Tag et release
+        if: steps.version.outputs.version
+        env:
+          TAG: v${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" target/*.jar --title "$TAG" --generate-notes --verify-tag

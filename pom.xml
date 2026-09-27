@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>simdev.org</groupId>
 	<artifactId>premerra</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>${revision}</version>
 	<name/>
 	<description/>
 	<url/>
@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- Surchargée par la CI avec la version du tag : -Drevision=X.Y.Z -->
+		<revision>0.0.0-SNAPSHOT</revision>
 	</properties>
 	<dependencies>
 		<dependency>
