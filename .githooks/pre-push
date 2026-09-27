@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Vérifie que chaque branche poussée respecte la hiérarchie définie dans CONTRIBUTING.md.
 pattern='^(main|develop|(feature|fix|refactor|chore|docs|test|hotfix)/[a-z0-9._-]+|release/[0-9]+\.[0-9]+\.[0-9]+)$'
+remote=$1
 status=0
+pushed=""
 
 while read -r local_ref _ remote_ref _; do
   case "$remote_ref" in refs/heads/*) ;; *) continue ;; esac
   branch=${remote_ref#refs/heads/}
+  pushed="$pushed $branch "
   if ! printf '%s' "$branch" | grep -qE "$pattern"; then
     echo "✖ Nom de branche invalide : '$branch'" >&2
     status=1
@@ -21,5 +24,21 @@ Noms autorisés :
     release/<X.Y.Z>
 Voir CONTRIBUTING.md
 MSG
+  exit $status
 fi
-exit $status
+
+# git push ne pousse que la branche courante : signale main/develop absentes ou en retard sur le remote.
+remote_heads=$(git ls-remote --heads "$remote" main develop 2>/dev/null)
+stale=""
+for b in main develop; do
+  case "$pushed" in *" $b "*) continue ;; esac
+  local_sha=$(git rev-parse -q --verify "refs/heads/$b") || continue
+  remote_sha=$(printf '%s\n' "$remote_heads" | awk -v r="refs/heads/$b" '$2 == r { print $1 }')
+  [ "$local_sha" = "$remote_sha" ] || stale="$stale $b"
+done
+
+if [ -n "$stale" ]; then
+  echo "⚠ Branches non synchronisées sur '$remote' :$stale" >&2
+  echo "  → git push -u $remote$stale" >&2
+fi
+exit 0
