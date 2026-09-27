@@ -21,19 +21,8 @@ range="origin/$first_base..HEAD"
 subjects=$(git log --no-merges --reverse --format=%s "$range")
 [ -n "$subjects" ] || { echo "✖ Aucun commit à proposer par rapport à '$first_base'." >&2; exit 1; }
 
-# En squash, seul le titre de la PR arrive sur develop : il porte l'impact de version le plus fort
-title=$1
-if [ -z "$title" ]; then
-  title=$(printf '%s\n' "$subjects" | grep -m1 -E '^[a-z]+(\([a-z0-9-]+\))?!: ' \
-       || printf '%s\n' "$subjects" | grep -m1 -E '^feat(\([a-z0-9-]+\))?: ' \
-       || printf '%s\n' "$subjects" | grep -m1 -E '^(fix|perf)(\([a-z0-9-]+\))?: ' \
-       || printf '%s\n' "$subjects" | head -1)
-  # Pied BREAKING CHANGE dans un commit : le titre doit porter le « ! » pour survivre au squash
-  if git log --no-merges --format=%b "$range" | grep -qE '^BREAKING[ -]CHANGE: ' \
-     && ! printf '%s' "$title" | grep -qE '^[a-z]+(\([a-z0-9-]+\))?!: '; then
-    title=$(printf '%s' "$title" | sed -E 's/^([a-z]+(\([a-z0-9-]+\))?): /\1!: /')
-  fi
-fi
+# Titre imposé, sinon celui du commit le plus impactant pour la version
+title=${1:-$(./scripts/pr-title.sh "origin/$first_base" HEAD)}
 
 msg=$(mktemp); trap 'rm -f "$msg"' EXIT
 printf '%s\n' "$title" > "$msg"

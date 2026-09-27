@@ -148,6 +148,10 @@ Les tags `v*` sont réservés au workflow `tag.yml` (règle de dépôt « tags d
 La branche par défaut est `develop` : les PR s'y ouvrent par défaut, et la branche source est supprimée après fusion.
 Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
 
+PR ouverte vers la mauvaise cible (typiquement le bouton « Compare & pull request », qui vise la branche par défaut) :
+le check `conventions` la corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermée ;
+sinon → redirigée vers la bonne branche, avec un titre recalculé s'il est invalide (`scripts/pr-title.sh`).
+
 ## Convention de commit
 
 Basée sur [Conventional Commits](https://www.conventionalcommits.org/fr/v1.0.0/). Messages en français.

@@ -21,9 +21,14 @@ jobs:
           fetch-depth: 0
 
       - name: Nom et cible de la branche
+        id: cible
         env:
           HEAD: ${{ github.head_ref }}
           BASE: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           pattern='^((feature|fix|refactor|chore|docs|test|hotfix)/[a-z0-9._-]+|release/[0-9]+\.[0-9]+\.[0-9]+|develop|dependabot/.+)$'
           if ! [[ "$HEAD" =~ $pattern ]]; then
@@ -34,14 +39,36 @@ jobs:
             develop)            allowed='main' ;;
             *)                  allowed='develop' ;;   # y compris dependabot/*
           esac
-          if ! [[ " $allowed " == *" $BASE "* ]]; then
-            echo "::error::'$HEAD' ne peut pas fusionner dans '$BASE' (autorisé : $allowed)"; exit 1
+          [[ " $allowed " == *" $BASE "* ]] && exit 0
+
+          # Mauvaise cible (souvent le bouton « Compare & pull request », qui vise la branche par défaut) :
+          # on corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermé ; sinon → redirigé.
+          target=${allowed%% *}
+          dup=$(gh pr list -R "$GITHUB_REPOSITORY" --head "$HEAD" --base "$target" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$dup" ]; then
+            gh pr close "$PR" -R "$GITHUB_REPOSITORY" -c "Doublon de #$dup, ouvert vers \`$BASE\` au lieu de \`$target\`. Fermé automatiquement."
+            echo "closed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR #$PR fermée : doublon de #$dup (cible $target)"
+            exit 0
+          fi
+
+          gh pr edit "$PR" -R "$GITHUB_REPOSITORY" --base "$target"
+          echo "::notice::PR #$PR redirigée de '$BASE' vers '$target'"
+          git fetch -q origin "$target"
+          echo "FIXED_BASE_SHA=$(git rev-parse "origin/$target")" >> "$GITHUB_ENV"
+
+          printf '%s\n' "$TITLE" > /tmp/title
+          if ! bash .githooks/commit-msg /tmp/title 2>/dev/null; then
+            fixed=$(./scripts/pr-title.sh "origin/$target" "$HEAD_SHA")
+            gh pr edit "$PR" -R "$GITHUB_REPOSITORY" --title "$fixed"
+            echo "FIXED_TITLE=$fixed" >> "$GITHUB_ENV"
+            echo "::notice::Titre « $TITLE » remplacé par « $fixed »"
           fi
 
       # PR develop → main : GitHub propose « Develop » comme titre. On le remplace ici, dans le même run,
       # car une modification faite avec GITHUB_TOKEN ne relance pas ce workflow.
       - name: Titre de la PR de release
-        if: github.head_ref == 'develop' && github.base_ref == 'main'
+        if: steps.cible.outputs.closed != 'true' && github.head_ref == 'develop' && github.base_ref == 'main'
         env:
           TITLE: ${{ github.event.pull_request.title }}
           PR: ${{ github.event.pull_request.number }}
@@ -55,6 +82,7 @@ jobs:
           echo "::notice::Titre « $TITLE » remplacé par « $fixed »"
 
       - name: Titre de la PR
+        if: steps.cible.outputs.closed != 'true'
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
@@ -62,12 +90,14 @@ jobs:
           bash .githooks/commit-msg /tmp/title
 
       - name: Messages de commit
+        if: steps.cible.outputs.closed != 'true'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           status=0
-          for sha in $(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); do
+          # Base corrigée si la PR vient d'être redirigée
+          for sha in $(git rev-list --no-merges "${FIXED_BASE_SHA:-$BASE_SHA}..$HEAD_SHA"); do
             git log -1 --format=%B "$sha" > /tmp/msg
             bash .githooks/commit-msg /tmp/msg || { echo "::error::Commit $sha invalide"; status=1; }
           done
