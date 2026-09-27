@@ -13,3 +13,9 @@ if [ "$branch" = "main" ]; then
 MSG
   exit 1
 fi
+
+# Build et tests (commande définie dans scripts/check.sh). Contournable : git commit --no-verify
+if ! ./scripts/check.sh --staged; then
+  echo "✖ Tests en échec : commit annulé." >&2
+  exit 1
+fi

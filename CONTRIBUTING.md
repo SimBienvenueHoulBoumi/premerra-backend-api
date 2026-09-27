@@ -11,10 +11,11 @@ Active les hooks versionnés dans `.githooks/` et le modèle de message `.gitmes
 | Hook         | Vérifie                                                |
 |--------------|--------------------------------------------------------|
 | `commit-msg` | Le message respecte la convention de commit            |
-| `pre-commit` | Aucun commit direct sur `main`                         |
+| `pre-commit` | Aucun commit direct sur `main` ; build + tests (`scripts/check.sh`) si le commit touche `src/`, `pom.xml` ou `.mvn/` |
 | `pre-push`   | Le nom de la branche poussée respecte la hiérarchie    |
 
-Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`).
+Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
+et `.github/workflows/ci.yml` compile et teste chaque PR et chaque push sur `main`/`develop`.
 
 ## Hiérarchie des branches
 
@@ -30,7 +31,7 @@ develop ──●──●─────●──────●─────
 
 | Branche             | Part de   | Fusionne dans       | Rôle                                   |
 |---------------------|-----------|---------------------|----------------------------------------|
-| `main`              | —         | —                   | Code en production. Jamais de commit direct. |
+| `main`              | —         | —                   | Code en production. Jamais de commit direct. Tags automatiques. |
 | `develop`           | `main`    | —                   | Intégration de la prochaine version.   |
 | `feature/<nom>`     | `develop` | `develop`           | Nouvelle fonctionnalité.               |
 | `fix/<nom>`         | `develop` | `develop`           | Correction de bug non urgente.         |
@@ -38,7 +39,7 @@ develop ──●──●─────●──────●─────
 | `chore/<nom>`       | `develop` | `develop`           | Dépendances, config, outillage.        |
 | `docs/<nom>`        | `develop` | `develop`           | Documentation.                         |
 | `test/<nom>`        | `develop` | `develop`           | Ajout ou correction de tests.          |
-| `release/<X.Y.Z>`   | `develop` | `main` + `develop`  | Préparation d'une version (version du pom, derniers fixes). |
+| `release/<X.Y.Z>`   | `develop` | `main` + `develop`  | Préparation d'une version (derniers fixes). |
 | `hotfix/<nom>`      | `main`    | `main` + `develop`  | Correction urgente en production.      |
 
 **Règles de nommage** : minuscules, kebab-case, court et explicite.
@@ -62,15 +63,12 @@ gh pr create --base develop --title "feat(auth): ajouter la connexion par JWT"
 ```bash
 git switch develop && git pull
 git switch -c release/1.1.0
-./mvnw versions:set -DnewVersion=1.1.0 -DgenerateBackupPoms=false
-git commit -am "chore(release): passer en version 1.1.0"
+# derniers correctifs éventuels (la version du pom est injectée par la CI depuis le tag)
 git push -u origin release/1.1.0
 
 gh pr create --base main    --title "chore(release): version 1.1.0"
 gh pr create --base develop --title "chore(release): version 1.1.0"
-# → fusionner les deux PR (merge commit, pas squash), puis taguer main :
-git switch main && git pull
-git tag -a v1.1.0 -m "v1.1.0" && git push origin v1.1.0
+# → fusionner les deux PR (merge commit, pas squash) : le tag est créé automatiquement
 ```
 
 ### Hotfix
@@ -83,16 +81,28 @@ git push -u origin hotfix/token-expire
 
 gh pr create --base main    --title "fix(auth): corriger l'expiration du token"
 gh pr create --base develop --title "fix(auth): corriger l'expiration du token"
-# → fusionner les deux PR, puis taguer main :
-git switch main && git pull
-git tag -a v1.1.1 -m "v1.1.1" && git push origin v1.1.1
+# → fusionner les deux PR : le tag est créé automatiquement
 ```
+
+### Tags automatiques
+
+À chaque push sur `main`, le workflow `.github/workflows/tag.yml` lit les commits depuis le dernier tag `vX.Y.Z` et crée le suivant :
+
+| Commits depuis le dernier tag                  | Tag              |
+|------------------------------------------------|------------------|
+| au moins un `type!:` ou `BREAKING CHANGE:`     | MAJOR (`v2.0.0`) |
+| sinon au moins un `feat`                       | MINOR (`v1.2.0`) |
+| sinon au moins un `fix` ou `perf`              | PATCH (`v1.1.1`) |
+| uniquement `docs`, `chore`, `refactor`…        | pas de tag       |
+
+Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar.
+Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
 
 `main` et `develop` sont protégées :
 - modification uniquement par Pull Request (push direct refusé)
-- le check `conventions` doit passer (nom de branche, cible, titre de PR, messages de commit)
+- les checks `conventions` et `ci` doivent passer (nom de branche, cible, titre de PR, messages de commit)
 - force push et suppression interdits
 
 La branche par défaut est `develop` : les PR s'y ouvrent par défaut.
