@@ -1,0 +1,59 @@
+name: release-pr
+
+# Tient à jour la PR develop → main qui publie la prochaine version.
+# Titre « chore(release): vX.Y.Z » et changelog calculés comme tag.yml le fera (scripts/next-version.sh).
+# La fusion reste humaine : fusionner cette PR (merge commit) publie la version.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: true
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Créer ou mettre à jour la PR de release
+        env:
+          # Un jeton personnel déclenche les checks sur la PR créée ; GITHUB_TOKEN ne le fait pas.
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || github.token }}
+          HAS_PAT: ${{ secrets.RELEASE_PR_TOKEN != '' }}
+        run: |
+          pr=$(gh pr list --head develop --base main --state open --json number --jq '.[0].number // empty')
+          version=$(./scripts/next-version.sh HEAD)
+
+          if [ -z "$version" ]; then
+            echo "::notice::Rien à publier (seulement chore/docs/ci/build…) : pas de PR de release."
+            [ -z "$pr" ] || gh pr edit "$pr" --title "chore(release): livrer develop sur main" \
+              --body "Aucune nouvelle version : cette PR ne contient que de la maintenance."
+            exit 0
+          fi
+
+          title="chore(release): v$version"
+          body=$(printf '%s\n\n%s\n\n---\n%s\n' \
+            "Publie **v$version** à la fusion (merge commit, pas squash) : tag, build et GitHub Release automatiques." \
+            "$(./scripts/release-notes.sh HEAD)" \
+            "_PR tenue à jour automatiquement à chaque fusion sur develop._")
+
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" --body "$body"
+            echo "::notice::PR #$pr mise à jour : $title"
+          else
+            gh pr create --head develop --base main --title "$title" --body "$body"
+            echo "::notice::PR de release créée : $title"
+          fi
+
+          if [ "$HAS_PAT" != "true" ]; then
+            echo "::warning::Sans secret RELEASE_PR_TOKEN, les checks (conventions) ne se déclenchent pas sur une PR créée par le workflow. Voir CONTRIBUTING.md."
+          fi
