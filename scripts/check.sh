@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# Vérifications propres à la techno du projet (build + tests), appelées par le hook pre-commit.
-# Changer de techno = modifier uniquement ce fichier.
+# Build + tests du projet. Appelé par le hook pre-push. Changer de techno = modifier uniquement ce fichier.
+#   ./scripts/check.sh                   → lance toujours
+#   … | ./scripts/check.sh --if-changed  → lance seulement si la liste de fichiers (stdin) touche le code
 set -e
 cd "$(git rev-parse --show-toplevel)"
+. scripts/env.sh
 
-# Rien à tester si le commit ne touche ni le code ni le build
-if [ "$1" = "--staged" ] && ! git diff --cached --name-only | grep -qE '^(src/|pom\.xml|\.mvn/)'; then
+if [ "$1" = "--if-changed" ] && ! grep -qE '^(src/|pom\.xml$|\.mvn/)'; then
+  echo "▷ Aucun changement de code : tests ignorés."
   exit 0
 fi
 
-# Le projet cible Java 21 : sur macOS, on le sélectionne s'il n'est pas le JDK par défaut
-if [ -x /usr/libexec/java_home ] && java21=$(/usr/libexec/java_home -v 21 2>/dev/null); then
-  export JAVA_HOME=$java21
-fi
-
-echo "▶ Tests (./mvnw verify)…"
+echo "▶ Build + tests (./mvnw verify)…"
 ./mvnw -B -q -ntp verify
