@@ -15,6 +15,10 @@ Sans Maven : `./scripts/setup-git.sh`.
 Un fichier en partie indexé (`git add -p`) qui doit être reformaté bloque le commit : vérifier puis `git add`.
 Les commandes propres à la techno sont isolées dans `scripts/` : les hooks restent génériques.
 
+Aucun hook git ne se déclenche à la création d'une PR : c'est `scripts/pr.sh` qui la crée avec la bonne cible
+(déduite du type de branche) et un titre validé par `commit-msg`. En squash, ce titre devient le commit sur `develop`
+et décide de la version : le script retient le commit le plus impactant (`!` > `feat` > `fix`).
+
 Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
 et `.github/workflows/ci.yml` compile, vérifie le formatage et teste chaque PR et chaque push sur `main`/`develop`.
 
@@ -61,8 +65,7 @@ develop ──●──●─────●──────●─────
 git switch develop && git pull
 git switch -c feature/auth-jwt
 # ... commits ...
-git push -u origin feature/auth-jwt
-gh pr create --base develop --title "feat(auth): ajouter la connexion par JWT"
+./scripts/pr.sh   # pousse + PR vers develop, titre = commit le plus impactant (vérifié en local)
 # → fusion (squash) puis suppression automatique de la branche
 ```
 
@@ -72,10 +75,7 @@ gh pr create --base develop --title "feat(auth): ajouter la connexion par JWT"
 git switch develop && git pull
 git switch -c release/1.1.0
 # derniers correctifs éventuels (la version du pom est injectée par la CI depuis le tag)
-git push -u origin release/1.1.0
-
-gh pr create --base main    --title "chore(release): version 1.1.0"
-gh pr create --base develop --title "chore(release): version 1.1.0"
+./scripts/pr.sh "chore(release): version 1.1.0"   # pousse + PR vers main ET develop
 # → fusionner les deux PR (merge commit, pas squash) : le tag est créé automatiquement
 ```
 
@@ -85,10 +85,7 @@ gh pr create --base develop --title "chore(release): version 1.1.0"
 git switch main && git pull
 git switch -c hotfix/token-expire
 git commit -am "fix(auth): corriger l'expiration du token"
-git push -u origin hotfix/token-expire
-
-gh pr create --base main    --title "fix(auth): corriger l'expiration du token"
-gh pr create --base develop --title "fix(auth): corriger l'expiration du token"
+./scripts/pr.sh   # pousse + PR vers main ET develop
 # → fusionner les deux PR : le tag est créé automatiquement
 ```
 

@@ -8,6 +8,7 @@ remote=$1
 status=0
 changed=""
 run_all=0
+new_branch=""
 
 while read -r _ local_sha remote_ref remote_sha; do
   case "$remote_ref" in refs/heads/*) ;; *) continue ;; esac
@@ -29,6 +30,7 @@ while read -r _ local_sha remote_ref remote_sha; do
 
   # Fichiers modifiés par ce push : depuis l'état distant, ou depuis develop pour une nouvelle branche
   [ "$local_sha" = "$zero" ] && continue
+  [ "$remote_sha" = "$zero" ] && [ -z "$PR_SH" ] && new_branch=$branch
   if [ "$remote_sha" != "$zero" ]; then
     base=$remote_sha
   else
@@ -63,3 +65,7 @@ if [ $run_all -eq 1 ]; then
 else
   printf '%s' "$changed" | ./scripts/check.sh --if-changed
 fi || { echo "✖ Tests en échec : push annulé." >&2; exit 1; }
+
+# Nouvelle branche : la PR se crée sans erreur de cible ni de titre avec scripts/pr.sh
+[ -n "$new_branch" ] && echo "→ Pour ouvrir la PR (bonne cible, titre vérifié) : ./scripts/pr.sh" >&2
+exit 0
