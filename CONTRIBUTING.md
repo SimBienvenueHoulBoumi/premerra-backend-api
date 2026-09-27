@@ -109,17 +109,11 @@ S'il n'y a que de la maintenance, aucune PR n'est ouverte : il n'y a rien à pub
 Version et changelog viennent de `scripts/next-version.sh` et `scripts/release-notes.sh`, les mêmes que `tag.yml` :
 la version annoncée dans la PR est celle qui sera publiée.
 
-Jeton requis (une fois) : une PR créée avec le `GITHUB_TOKEN` par défaut ne déclenche pas les checks,
-et GitHub interdit par défaut aux Actions d'ouvrir des PR. Créer un jeton *fine-grained* limité à ce dépôt
-(permissions **Pull requests : Read and write**, **Contents : Read**), puis :
-
-```bash
-gh secret set RELEASE_PR_TOKEN   # colle le jeton quand demandé
-```
-
-Sans ce secret, le workflow utilise `GITHUB_TOKEN` (à autoriser dans *Settings → Actions → General →
-Allow GitHub Actions to create and approve pull requests*) et affiche un avertissement : les checks ne tourneront
-qu'après une action humaine sur la PR (modifier le titre, fermer/rouvrir).
+Jeton : une PR créée avec le `GITHUB_TOKEN` par défaut ne déclenche pas les checks, pourtant obligatoires pour
+fusionner. `./scripts/setup-github.sh` demande un jeton *fine-grained* limité au dépôt
+(**Pull requests : Read and write**, **Contents : Read**) et l'enregistre dans le secret `RELEASE_PR_TOKEN`.
+Sans jeton, il autorise les Actions à créer des PR : la PR de release s'ouvre, mais ses checks ne se lancent
+qu'après une action humaine dessus (modifier le titre, fermer/rouvrir).
 
 ### Tags automatiques
 
@@ -137,6 +131,12 @@ et le même changelog que la PR de release.
 Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
+
+Tout ce qui suit se configure en une commande, par un admin du dépôt (idempotent, `--dry-run` pour prévisualiser) :
+
+```bash
+./scripts/setup-github.sh
+```
 
 `main` et `develop` sont en lecture seule (règle de dépôt « branches protégées ») :
 - modification uniquement par Pull Request, pour tout le monde (push direct refusé)
