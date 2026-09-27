@@ -3,7 +3,7 @@
 ## Installation
 
 Rien à faire : le premier `./mvnw` (build, tests…) active les hooks versionnés dans `.githooks/`
-et le modèle de message `.gitmessage` (profil `git-hooks` du `pom.xml`).
+et le modèle de message `.gitmessage`, et `fetch.prune` (profil `git-hooks` du `pom.xml`).
 Sans Maven : `./scripts/setup-git.sh`.
 
 | Hook         | Rôle                                                                              |
@@ -11,6 +11,7 @@ Sans Maven : `./scripts/setup-git.sh`.
 | `commit-msg` | Le message respecte la convention de commit                                       |
 | `pre-commit` | Aucun commit direct sur `main`/`develop` ; reformate et ré-indexe le code Java (`scripts/format.sh`) |
 | `pre-push`   | Nom de branche valide ; aucun push sur `main`/`develop` ; build + tests (`scripts/check.sh`) si les commits poussés touchent `src/`, `pom.xml` ou `.mvn/` |
+| `post-merge` | Après `git pull` : supprime les branches locales fusionnées et supprimées sur GitHub (merge ou squash) ; une branche non fusionnée est seulement signalée |
 
 Un fichier en partie indexé (`git add -p`) qui doit être reformaté bloque le commit : vérifier puis `git add`.
 Les commandes propres à la techno sont isolées dans `scripts/` : les hooks restent génériques.
@@ -145,7 +146,9 @@ Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que
 
 Les tags `v*` sont réservés au workflow `tag.yml` (règle de dépôt « tags de version ») : création, modification et suppression manuelles refusées.
 
-La branche par défaut est `develop` : les PR s'y ouvrent par défaut, et la branche source est supprimée après fusion.
+La branche par défaut est `develop` : les PR s'y ouvrent par défaut.
+La branche source d'une PR fusionnée est supprimée par `.github/workflows/cleanup-branches.yml`
+(sauf `main`, `develop` et une branche encore source d'une autre PR ouverte, cas de `release/*` et `hotfix/*`).
 Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
 
 ## Convention de commit

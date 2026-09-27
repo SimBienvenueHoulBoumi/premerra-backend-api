@@ -32,6 +32,7 @@ Le reste est pris en charge :
 | `git commit`    | Code Java reformaté et ré-indexé (Palantir Java Format) · message vérifié · refus sur `main`/`develop` |
 | `git push`      | Nom de branche vérifié · refus sur `main`/`develop` · build + tests si le code a changé |
 | Pull Request    | Mêmes règles rejouées sur GitHub · build, formatage et tests (`build`, `conventions`) |
+| PR fusionnée   | Branche supprimée sur GitHub ; au `git pull` suivant, supprimée aussi en local |
 | Fusion sur `develop` | PR de release `develop` → `main` créée ou mise à jour : prochaine version + changelog |
 | Fusion sur `main` | Version calculée · tag `vX.Y.Z` · GitHub Release avec le jar                   |
 | Chaque lundi    | Dependabot ouvre une PR groupée de mises à jour (Maven, GitHub Actions) vers `develop` |

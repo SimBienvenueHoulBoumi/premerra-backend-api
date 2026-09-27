@@ -107,6 +107,21 @@
 								</configuration>
 							</execution>
 							<execution>
+								<id>git-fetch-prune</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>git</executable>
+									<arguments>
+										<argument>config</argument>
+										<argument>fetch.prune</argument>
+										<argument>true</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							<execution>
 								<id>git-commit-template</id>
 								<phase>initialize</phase>
 								<goals>
