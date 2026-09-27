@@ -11,8 +11,8 @@ Active les hooks versionnés dans `.githooks/` et le modèle de message `.gitmes
 | Hook         | Vérifie                                                |
 |--------------|--------------------------------------------------------|
 | `commit-msg` | Le message respecte la convention de commit            |
-| `pre-commit` | Aucun commit direct sur `main` ; build + tests (`scripts/check.sh`) si le commit touche `src/`, `pom.xml` ou `.mvn/` |
-| `pre-push`   | Le nom de la branche poussée respecte la hiérarchie    |
+| `pre-commit` | Aucun commit direct sur `main`/`develop` ; build + tests (`scripts/check.sh`) si le commit touche `src/`, `pom.xml` ou `.mvn/` |
+| `pre-push`   | Le nom de la branche poussée respecte la hiérarchie ; aucun push sur `main`/`develop` |
 
 Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
 et `.github/workflows/ci.yml` compile et teste chaque PR et chaque push sur `main`/`develop`.
@@ -100,13 +100,16 @@ Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que
 
 ## Règles GitHub
 
-`main` et `develop` sont protégées :
-- modification uniquement par Pull Request (push direct refusé)
-- les checks `conventions` et `ci` doivent passer (nom de branche, cible, titre de PR, messages de commit)
+`main` et `develop` sont en lecture seule (règle de dépôt « branches protégées ») :
+- modification uniquement par Pull Request, pour tout le monde (push direct refusé)
+- les checks `conventions` (nom de branche, cible, titre de PR, messages de commit) et `build` (CI) doivent passer
 - force push et suppression interdits
+- méthodes de fusion : `develop` ← squash (merge commit pour `release/*` et `hotfix/*`) ; `main` ← merge commit uniquement
 
-La branche par défaut est `develop` : les PR s'y ouvrent par défaut.
-Le titre de la PR suit la convention de commit (il devient le message en cas de squash).
+Les tags `v*` sont réservés au workflow `tag.yml` (règle de dépôt « tags de version ») : création, modification et suppression manuelles refusées.
+
+La branche par défaut est `develop` : les PR s'y ouvrent par défaut, et la branche source est supprimée après fusion.
+Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
 
 ## Convention de commit
 
