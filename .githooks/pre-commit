@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Interdit les commits directs sur main : passer par develop, release/* ou hotfix/*.
+# Interdit les commits directs sur main et develop : elles n'évoluent que par Pull Request.
 branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
 # Premier commit du dépôt : main doit exister avant de pouvoir créer develop
 git rev-parse --verify -q HEAD >/dev/null || exit 0
 
-if [ "$branch" = "main" ]; then
+if [ "$branch" = "main" ] || [ "$branch" = "develop" ]; then
   cat >&2 <<MSG
-✖ Commit direct interdit sur 'main'.
+✖ Commit direct interdit sur '$branch'.
   Crée une branche depuis develop :  git switch develop && git switch -c feature/<nom>
   ou un correctif urgent depuis main : git switch -c hotfix/<nom>
 MSG
