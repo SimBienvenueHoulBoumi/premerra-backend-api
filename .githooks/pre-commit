@@ -14,8 +14,33 @@ MSG
   exit 1
 fi
 
-# Build et tests (commande définie dans scripts/check.sh). Contournable : git commit --no-verify
-if ! ./scripts/check.sh --staged; then
-  echo "✖ Tests en échec : commit annulé." >&2
+# Formatage automatique des fichiers indexés (commande définie dans scripts/format.sh)
+files=()
+while IFS= read -r f; do files+=("$f"); done < <(git diff --cached --name-only --diff-filter=ACMR)
+[ ${#files[@]} -gt 0 ] || exit 0
+
+# Fichiers en partie indexés : on ne peut pas ré-indexer le formatage sans embarquer le reste
+partial=$(git diff --name-only)
+before=$(git hash-object -- "${files[@]}")
+
+if ! ./scripts/format.sh "${files[@]}"; then
+  echo "✖ Formatage en échec : commit annulé." >&2
+  exit 1
+fi
+
+after=$(git hash-object -- "${files[@]}")
+[ "$before" = "$after" ] && exit 0
+
+blocked=""
+for f in "${files[@]}"; do
+  if printf '%s\n' "$partial" | grep -qxF -- "$f"; then
+    blocked="$blocked\n    $f"
+  else
+    git add -- "$f"
+  fi
+done
+
+if [ -n "$blocked" ]; then
+  printf '✖ Fichiers reformatés mais en partie indexés : vérifie puis ajoute-les (git add) :%b\n' "$blocked" >&2
   exit 1
 fi

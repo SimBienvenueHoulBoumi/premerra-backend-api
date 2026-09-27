@@ -31,7 +31,8 @@ MSG
   exit 1
 fi
 
-if [ ${#first_line} -gt 72 ]; then
-  echo "✖ Première ligne trop longue (${#first_line} > 72 caractères)." >&2
+max=${COMMIT_MSG_MAX_LENGTH:-72}   # relâchée par la CI pour les PR Dependabot
+if [ ${#first_line} -gt "$max" ]; then
+  echo "✖ Première ligne trop longue (${#first_line} > $max caractères)." >&2
   exit 1
 fi

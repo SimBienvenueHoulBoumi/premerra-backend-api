@@ -30,6 +30,8 @@
 		<java.version>21</java.version>
 		<!-- Surchargée par la CI avec la version du tag : -Drevision=X.Y.Z -->
 		<revision>0.0.0-SNAPSHOT</revision>
+		<spotless.version>3.10.3</spotless.version>
+		<exec-maven-plugin.version>3.6.4</exec-maven-plugin.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -50,7 +52,80 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<!-- Formatage : ./mvnw spotless:apply corrige, verify échoue si le code n'est pas formaté -->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>${spotless.version}</version>
+				<configuration>
+					<java>
+						<palantirJavaFormat/>
+						<removeUnusedImports/>
+						<formatAnnotations/>
+					</java>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!-- Active les hooks git au premier build : aucune commande d'installation à retenir après un clone -->
+		<profile>
+			<id>git-hooks</id>
+			<activation>
+				<file>
+					<exists>${basedir}/.git</exists>
+				</file>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>exec-maven-plugin</artifactId>
+						<version>${exec-maven-plugin.version}</version>
+						<executions>
+							<execution>
+								<id>git-hooks-path</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>git</executable>
+									<arguments>
+										<argument>config</argument>
+										<argument>core.hooksPath</argument>
+										<argument>.githooks</argument>
+									</arguments>
+								</configuration>
+							</execution>
+							<execution>
+								<id>git-commit-template</id>
+								<phase>initialize</phase>
+								<goals>
+									<goal>exec</goal>
+								</goals>
+								<configuration>
+									<executable>git</executable>
+									<arguments>
+										<argument>config</argument>
+										<argument>commit.template</argument>
+										<argument>.gitmessage</argument>
+									</arguments>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>

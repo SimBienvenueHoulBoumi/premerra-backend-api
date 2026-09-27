@@ -8,6 +8,9 @@ on:
 jobs:
   conventions:
     runs-on: ubuntu-latest
+    env:
+      # Titres Dependabot (« bump <groupId:artifactId> from X to Y ») : format vérifié, longueur relâchée
+      COMMIT_MSG_MAX_LENGTH: ${{ startsWith(github.head_ref, 'dependabot/') && 200 || 72 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,14 +21,14 @@ jobs:
           HEAD: ${{ github.head_ref }}
           BASE: ${{ github.base_ref }}
         run: |
-          pattern='^((feature|fix|refactor|chore|docs|test|hotfix)/[a-z0-9._-]+|release/[0-9]+\.[0-9]+\.[0-9]+|develop)$'
+          pattern='^((feature|fix|refactor|chore|docs|test|hotfix)/[a-z0-9._-]+|release/[0-9]+\.[0-9]+\.[0-9]+|develop|dependabot/.+)$'
           if ! [[ "$HEAD" =~ $pattern ]]; then
             echo "::error::Nom de branche invalide : '$HEAD' (voir CONTRIBUTING.md)"; exit 1
           fi
           case "$HEAD" in
             release/*|hotfix/*) allowed='main develop' ;;
             develop)            allowed='main' ;;
-            *)                  allowed='develop' ;;
+            *)                  allowed='develop' ;;   # y compris dependabot/*
           esac
           if ! [[ " $allowed " == *" $BASE "* ]]; then
             echo "::error::'$HEAD' ne peut pas fusionner dans '$BASE' (autorisé : $allowed)"; exit 1
