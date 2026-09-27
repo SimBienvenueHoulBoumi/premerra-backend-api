@@ -1,21 +1,29 @@
 # Contribuer à Premerra
 
-## Installation (une fois après le clone)
+## Installation
 
-```bash
-./scripts/setup-git.sh
-```
+Rien à faire : le premier `./mvnw` (build, tests…) active les hooks versionnés dans `.githooks/`
+et le modèle de message `.gitmessage` (profil `git-hooks` du `pom.xml`).
+Sans Maven : `./scripts/setup-git.sh`.
 
-Active les hooks versionnés dans `.githooks/` et le modèle de message `.gitmessage` :
+| Hook         | Rôle                                                                              |
+|--------------|-----------------------------------------------------------------------------------|
+| `commit-msg` | Le message respecte la convention de commit                                       |
+| `pre-commit` | Aucun commit direct sur `main`/`develop` ; reformate et ré-indexe le code Java (`scripts/format.sh`) |
+| `pre-push`   | Nom de branche valide ; aucun push sur `main`/`develop` ; build + tests (`scripts/check.sh`) si les commits poussés touchent `src/`, `pom.xml` ou `.mvn/` |
 
-| Hook         | Vérifie                                                |
-|--------------|--------------------------------------------------------|
-| `commit-msg` | Le message respecte la convention de commit            |
-| `pre-commit` | Aucun commit direct sur `main`/`develop` ; build + tests (`scripts/check.sh`) si le commit touche `src/`, `pom.xml` ou `.mvn/` |
-| `pre-push`   | Le nom de la branche poussée respecte la hiérarchie ; aucun push sur `main`/`develop` |
+Un fichier en partie indexé (`git add -p`) qui doit être reformaté bloque le commit : vérifier puis `git add`.
+Les commandes propres à la techno sont isolées dans `scripts/` : les hooks restent génériques.
 
 Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
-et `.github/workflows/ci.yml` compile et teste chaque PR et chaque push sur `main`/`develop`.
+et `.github/workflows/ci.yml` compile, vérifie le formatage et teste chaque PR et chaque push sur `main`/`develop`.
+
+## Dépendances
+
+Dependabot (`.github/dependabot.yml`) ouvre chaque lundi une PR groupée vers `develop` :
+`build(deps): …` pour Maven, `ci(deps): …` pour GitHub Actions. Ces types ne créent pas de version.
+La fusion reste humaine : relire le changelog des dépendances, vérifier la CI, puis fusionner (squash).
+Sur ces PR uniquement, la CI accepte un titre de plus de 72 caractères.
 
 ## Hiérarchie des branches
 
