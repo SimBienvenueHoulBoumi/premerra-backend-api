@@ -151,6 +151,10 @@ La branche source d'une PR fusionnée est supprimée par `.github/workflows/clea
 (sauf `main`, `develop` et une branche encore source d'une autre PR ouverte, cas de `release/*` et `hotfix/*`).
 Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
 
+PR ouverte vers la mauvaise cible (typiquement le bouton « Compare & pull request », qui vise la branche par défaut) :
+le check `conventions` la corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermée ;
+sinon → redirigée vers la bonne branche, avec un titre recalculé s'il est invalide (`scripts/pr-title.sh`).
+
 ## Convention de commit
 
 Basée sur [Conventional Commits](https://www.conventionalcommits.org/fr/v1.0.0/). Messages en français.
