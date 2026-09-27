@@ -32,6 +32,7 @@ Le reste est pris en charge :
 | `git commit`    | Code Java reformaté et ré-indexé (Palantir Java Format) · message vérifié · refus sur `main`/`develop` |
 | `git push`      | Nom de branche vérifié · refus sur `main`/`develop` · build + tests si le code a changé |
 | Pull Request    | Mêmes règles rejouées sur GitHub · build, formatage et tests (`build`, `conventions`) |
+| Fusion sur `develop` | PR de release `develop` → `main` créée ou mise à jour : prochaine version + changelog |
 | Fusion sur `main` | Version calculée · tag `vX.Y.Z` · GitHub Release avec le jar                   |
 | Chaque lundi    | Dependabot ouvre une PR groupée de mises à jour (Maven, GitHub Actions) vers `develop` |
 
@@ -50,8 +51,9 @@ Rien à gérer à la main : ni tag, ni version dans le `pom.xml`.
 | `fix: …` ou `perf: …`                      | `v1.4.3` (correctif)    |
 | uniquement `docs`, `chore`, `build`…       | pas de nouvelle version |
 
-Pour livrer : PR `develop` → `main`, fusionnée en merge commit. Titre invalide (« Develop » proposé par GitHub) :
-la CI le remplace par `chore(release): livrer develop sur main`.
+**Pour livrer : fusionner la PR `chore(release): vX.Y.Z`** (merge commit). Elle est ouverte et tenue à jour
+automatiquement à chaque fusion sur `develop` qui justifie une version, avec la version exacte et le changelog.
+Tant qu'elle n'est pas fusionnée, rien n'est publié : le moment de la livraison reste une décision humaine.
 Versions publiées : [Releases](https://github.com/SimBienvenueHoulBoumi/premerra-backend-api/releases).
 
 ## Commandes utiles

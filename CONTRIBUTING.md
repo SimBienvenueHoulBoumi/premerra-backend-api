@@ -97,6 +97,29 @@ git commit -am "fix(auth): corriger l'expiration du token"
 # → fusionner les deux PR : le tag est créé automatiquement
 ```
 
+### Livraison : PR de release automatique
+
+À chaque push sur `develop`, `.github/workflows/release-pr.yml` crée ou met à jour la PR `develop` → `main`
+intitulée `chore(release): vX.Y.Z`, avec le changelog (changements cassants, nouveautés, corrections, maintenance).
+S'il n'y a que de la maintenance, aucune PR n'est ouverte : il n'y a rien à publier.
+
+**Livrer = fusionner cette PR en merge commit.** Le moment de la livraison reste une décision humaine.
+
+Version et changelog viennent de `scripts/next-version.sh` et `scripts/release-notes.sh`, les mêmes que `tag.yml` :
+la version annoncée dans la PR est celle qui sera publiée.
+
+Jeton requis (une fois) : une PR créée avec le `GITHUB_TOKEN` par défaut ne déclenche pas les checks,
+et GitHub interdit par défaut aux Actions d'ouvrir des PR. Créer un jeton *fine-grained* limité à ce dépôt
+(permissions **Pull requests : Read and write**, **Contents : Read**), puis :
+
+```bash
+gh secret set RELEASE_PR_TOKEN   # colle le jeton quand demandé
+```
+
+Sans ce secret, le workflow utilise `GITHUB_TOKEN` (à autoriser dans *Settings → Actions → General →
+Allow GitHub Actions to create and approve pull requests*) et affiche un avertissement : les checks ne tourneront
+qu'après une action humaine sur la PR (modifier le titre, fermer/rouvrir).
+
 ### Tags automatiques
 
 À chaque push sur `main`, le workflow `.github/workflows/tag.yml` lit les commits depuis le dernier tag `vX.Y.Z` et crée le suivant :
@@ -108,7 +131,8 @@ git commit -am "fix(auth): corriger l'expiration du token"
 | sinon au moins un `fix` ou `perf`              | PATCH (`v1.1.1`) |
 | uniquement `docs`, `chore`, `refactor`…        | pas de tag       |
 
-Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar.
+Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar
+et le même changelog que la PR de release.
 Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
