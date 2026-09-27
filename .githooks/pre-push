@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Vérifie que chaque branche poussée respecte la hiérarchie définie dans CONTRIBUTING.md.
+pattern='^(main|develop|(feature|fix|refactor|chore|docs|test|hotfix)/[a-z0-9._-]+|release/[0-9]+\.[0-9]+\.[0-9]+)$'
+status=0
+
+while read -r local_ref _ remote_ref _; do
+  case "$remote_ref" in refs/heads/*) ;; *) continue ;; esac
+  branch=${remote_ref#refs/heads/}
+  if ! printf '%s' "$branch" | grep -qE "$pattern"; then
+    echo "✖ Nom de branche invalide : '$branch'" >&2
+    status=1
+  fi
+done
+
+if [ $status -ne 0 ]; then
+  cat >&2 <<MSG
+
+Noms autorisés :
+    main, develop
+    feature|fix|refactor|chore|docs|test|hotfix/<nom-en-kebab-case>
+    release/<X.Y.Z>
+Voir CONTRIBUTING.md
+MSG
+fi
+exit $status

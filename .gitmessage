@@ -1,0 +1,12 @@
+
+# <type>(<scope>): <description courte, impératif, ≤ 72 caractères>
+#
+# Types : feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
+# Scope : module concerné (ex. auth, api, user, config) — optionnel
+# "!" après le type/scope = changement cassant (ex. feat(api)!: ...)
+#
+# Corps (optionnel) : le POURQUOI du changement, pas le comment.
+#
+# Pied (optionnel) :
+#   BREAKING CHANGE: <description>
+#   Refs: #123

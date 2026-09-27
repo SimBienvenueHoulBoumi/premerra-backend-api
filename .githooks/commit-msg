@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Vérifie que le message de commit respecte Conventional Commits.
+# Format : <type>(<scope>)!: <description>   — scope et ! optionnels
+set -e
+
+msg_file="$1"
+first_line=$(head -n1 "$msg_file")
+
+# Messages générés par git : on laisse passer
+if printf '%s' "$first_line" | grep -qE '^(Merge|Revert|fixup!|squash!|amend!) '; then
+  exit 0
+fi
+
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+pattern="^(${types})(\([a-z0-9-]+\))?!?: .+$"
+
+if ! printf '%s' "$first_line" | grep -qE "$pattern"; then
+  cat >&2 <<MSG
+✖ Message de commit invalide :
+    "$first_line"
+
+Format attendu : <type>(<scope>): <description>
+Types autorisés : ${types//|/, }
+Exemples :
+    feat(auth): ajouter la connexion par JWT
+    fix(api): corriger le code retour 500 sur /users
+    refactor!: renommer le package service
+
+Voir CONTRIBUTING.md
+MSG
+  exit 1
+fi
+
+if [ ${#first_line} -gt 72 ]; then
+  echo "✖ Première ligne trop longue (${#first_line} > 72 caractères)." >&2
+  exit 1
+fi
