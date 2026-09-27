@@ -21,14 +21,14 @@ git switch develop && git pull
 git switch -c feature/auth-jwt
 # … coder …
 git commit -am "feat(auth): ajouter la connexion par JWT"
-git push -u origin feature/auth-jwt
-gh pr create --base develop --fill
+./scripts/pr.sh            # pousse la branche et ouvre la PR : bonne cible, titre vérifié
 ```
 
 Le reste est pris en charge :
 
 | Quand           | Automatiquement                                                                  |
 |-----------------|----------------------------------------------------------------------------------|
+| `./scripts/pr.sh` | PR ouverte vers la bonne cible (`develop`, ou `main` + `develop` pour `release/*`, `hotfix/*`) avec un titre conforme, vérifié en local |
 | `git commit`    | Code Java reformaté et ré-indexé (Palantir Java Format) · message vérifié · refus sur `main`/`develop` |
 | `git push`      | Nom de branche vérifié · refus sur `main`/`develop` · build + tests si le code a changé |
 | Pull Request    | Mêmes règles rejouées sur GitHub · build, formatage et tests (`build`, `conventions`) |
@@ -50,7 +50,8 @@ Rien à gérer à la main : ni tag, ni version dans le `pom.xml`.
 | `fix: …` ou `perf: …`                      | `v1.4.3` (correctif)    |
 | uniquement `docs`, `chore`, `build`…       | pas de nouvelle version |
 
-Pour livrer : PR `develop` → `main` intitulée `chore(release): …`, fusionnée en merge commit.
+Pour livrer : PR `develop` → `main`, fusionnée en merge commit. Titre invalide (« Develop » proposé par GitHub) :
+la CI le remplace par `chore(release): livrer develop sur main`.
 Versions publiées : [Releases](https://github.com/SimBienvenueHoulBoumi/premerra-backend-api/releases).
 
 ## Commandes utiles
@@ -60,6 +61,7 @@ Versions publiées : [Releases](https://github.com/SimBienvenueHoulBoumi/premerr
 | `./mvnw spotless:apply`   | Formate tout le code                         |
 | `./mvnw verify`           | Build + formatage + tests (comme la CI)      |
 | `./scripts/check.sh`      | Ce que lance le hook `pre-push`              |
+| `./scripts/pr.sh [titre]` | Pousse et ouvre la PR (titre déduit des commits sinon) |
 | `git commit --no-verify`  | Contourne les hooks (la CI revérifie tout)   |
 
 ## Contribuer
