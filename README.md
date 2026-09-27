@@ -50,7 +50,8 @@ Rien à gérer à la main : ni tag, ni version dans le `pom.xml`.
 | `fix: …` ou `perf: …`                      | `v1.4.3` (correctif)    |
 | uniquement `docs`, `chore`, `build`…       | pas de nouvelle version |
 
-Pour livrer : PR `develop` → `main` intitulée `chore(release): …`, fusionnée en merge commit.
+Pour livrer : PR `develop` → `main`, fusionnée en merge commit. Titre invalide (« Develop » proposé par GitHub) :
+la CI le remplace par `chore(release): livrer develop sur main`.
 Versions publiées : [Releases](https://github.com/SimBienvenueHoulBoumi/premerra-backend-api/releases).
 
 ## Commandes utiles
