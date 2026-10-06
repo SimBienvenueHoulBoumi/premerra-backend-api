@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Titre de PR déduit des commits d'une plage : celui qui porte l'impact de version le plus fort.
-# En squash, seul ce titre arrive sur develop : il décide de la version (scripts/next-version.sh).
+# En squash, seul ce titre arrive sur develop : il décide de la version (release repogarde, mode tag).
 #   ./scripts/pr-title.sh <base> [head]   → ex. ./scripts/pr-title.sh origin/develop HEAD
-# Utilisé par scripts/pr.sh et par le check « conventions » (PR redirigée).
+# Utilisé par scripts/pr.sh (la CI repogarde applique la même règle avec fix-pr).
 set -e
 
 range="$1..${2:-HEAD}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pousse la branche courante et ouvre sa Pull Request vers la bonne cible, avec un titre conforme.
-# Tout est vérifié en local (mêmes règles que le check « conventions ») avant d'atteindre GitHub.
+# Le titre est vérifié en local (mêmes règles que la CI repogarde) avant d'atteindre GitHub.
 #   ./scripts/pr.sh                          → titre déduit des commits
 #   ./scripts/pr.sh "feat(auth): …"          → titre imposé
 # La fusion reste manuelle.
@@ -24,13 +24,16 @@ subjects=$(git log --no-merges --reverse --format=%s "$range")
 # Titre imposé, sinon celui du commit le plus impactant pour la version
 title=${1:-$(./scripts/pr-title.sh "origin/$first_base" HEAD)}
 
-msg=$(mktemp); trap 'rm -f "$msg"' EXIT
-printf '%s\n' "$title" > "$msg"
-bash .githooks/commit-msg "$msg"
+# Mêmes règles que repogarde (Conventional Commits, 72 caractères)
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+if ! printf '%s' "$title" | grep -qE "^($types)(\([a-z0-9._-]+\))?!?: .+" || [ "${#title}" -gt 72 ]; then
+  echo "✖ Titre non conforme : « $title » (<type>(<scope>): <description>, 72 caractères max)" >&2
+  exit 1
+fi
 
 body="$(printf '%s\n' "$subjects" | sed 's/^/- /')"
 
-PR_SH=1 git push -u origin HEAD
+git push -u origin HEAD
 
 for base in $bases; do
   url=$(gh pr list --head "$branch" --base "$base" --state open --json url --jq '.[0].url // empty')

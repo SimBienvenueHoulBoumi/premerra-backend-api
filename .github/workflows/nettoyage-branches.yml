@@ -1,0 +1,16 @@
+# Supprime la branche d'une PR mergée, sauf si une autre PR ouverte l'utilise
+# encore (release/… et hotfix/… sont mergées vers main et vers develop).
+name: nettoyage-branches
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  nettoyage:
+    uses: SimBienvenueHoulBoumi/repogarde/.github/workflows/nettoyage-branches.yml@v2
+    permissions:
+      contents: write
+      pull-requests: read

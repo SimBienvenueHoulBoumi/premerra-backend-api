@@ -2,25 +2,25 @@
 
 ## Installation
 
-Rien à faire : le premier `./mvnw` (build, tests…) active les hooks versionnés dans `.githooks/`
-et le modèle de message `.gitmessage`, et `fetch.prune` (profil `git-hooks` du `pom.xml`).
-Sans Maven : `./scripts/setup-git.sh`.
+Les règles git viennent de [repogarde](https://github.com/SimBienvenueHoulBoumi/repogarde) (`lefthook.yml`, version figée ;
+réglages du projet dans `.repogarde.conf`). Une fois par poste, installer [lefthook](https://lefthook.dev)
+(`brew install lefthook`, `npm i -g lefthook` ou `scoop install lefthook`) : le premier `./mvnw` installe ensuite les hooks,
+le modèle de message `.gitmessage` et `fetch.prune` (profil `git-hooks` du `pom.xml`). Sans Maven : `lefthook install`.
 
 | Hook         | Rôle                                                                              |
 |--------------|-----------------------------------------------------------------------------------|
-| `commit-msg` | Le message respecte la convention de commit                                       |
-| `pre-commit` | Aucun commit direct sur `main`/`develop` ; reformate et ré-indexe le code Java (`scripts/format.sh`) |
+| `commit-msg` | Le message respecte la convention de commit (72 caractères max)                   |
+| `pre-commit` | Aucun commit direct sur `main`/`develop` ; secrets bloqués ; reformate et ré-indexe le code Java (`scripts/format.sh`) |
 | `pre-push`   | Nom de branche valide ; aucun push sur `main`/`develop` ; build + tests (`scripts/check.sh`) si les commits poussés touchent `src/`, `pom.xml` ou `.mvn/` |
-| `post-merge` | Après `git pull` : supprime les branches locales fusionnées et supprimées sur GitHub (merge ou squash) ; une branche non fusionnée est seulement signalée |
+| `post-merge` | Après `git pull` : supprime les branches locales fusionnées et supprimées sur GitHub (merge ou squash) ; une branche non fusionnée est conservée |
 
-Un fichier en partie indexé (`git add -p`) qui doit être reformaté bloque le commit : vérifier puis `git add`.
-Les commandes propres à la techno sont isolées dans `scripts/` : les hooks restent génériques.
+Le formatage ne touche que le contenu indexé : le travail non indexé est préservé.
+Les commandes propres à la techno sont isolées dans `scripts/` (`format`, `test` de `.repogarde.conf`).
 
-Aucun hook git ne se déclenche à la création d'une PR : c'est `scripts/pr.sh` qui la crée avec la bonne cible
-(déduite du type de branche) et un titre validé par `commit-msg`. En squash, ce titre devient le commit sur `develop`
-et décide de la version : le script retient le commit le plus impactant (`!` > `feat` > `fix`).
+`scripts/pr.sh` crée la PR avec la bonne cible (déduite du type de branche) et un titre vérifié. En squash,
+ce titre devient le commit sur `develop` et décide de la version : le script retient le commit le plus impactant (`!` > `feat` > `fix`).
 
-Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/conventions.yml`),
+Les mêmes règles sont vérifiées sur GitHub pour chaque PR (`.github/workflows/repogarde.yml`, non contournable),
 et `.github/workflows/ci.yml` compile, vérifie le formatage et teste chaque PR et chaque push sur `main`/`develop`.
 
 ## Dépendances
@@ -36,7 +36,7 @@ Le préfixe dit si le livrable change, donc s'il faut une nouvelle version :
 
 Production et développement sont dans des groupes séparés : une PR ne mélange jamais les deux.
 La fusion reste humaine : relire le changelog des dépendances, vérifier la CI, puis fusionner (squash).
-Sur ces PR uniquement, la CI accepte un titre de plus de 72 caractères.
+Sur ces PR uniquement (commits de Dependabot), la CI accepte un titre de plus de 72 caractères.
 
 ## Hiérarchie des branches
 
@@ -100,24 +100,18 @@ git commit -am "fix(auth): corriger l'expiration du token"
 
 ### Livraison : PR de release automatique
 
-À chaque push sur `develop`, `.github/workflows/release-pr.yml` crée ou met à jour la PR `develop` → `main`
-intitulée `chore(release): vX.Y.Z`, avec le changelog (changements cassants, nouveautés, corrections, maintenance).
-S'il n'y a que de la maintenance, aucune PR n'est ouverte : il n'y a rien à publier.
+À chaque push sur `develop`, `.github/workflows/release.yml` (repogarde, mode tag) crée ou met à jour la PR `develop` → `main`
+intitulée `chore(release): vX.Y.Z`, avec le changelog (changements incompatibles, fonctionnalités, corrections, maintenance).
+S'il n'y a que de la maintenance, elle s'intitule `chore(release): livrer develop sur main` : il n'y a pas de version à publier.
 
 **Livrer = fusionner cette PR en merge commit.** Le moment de la livraison reste une décision humaine.
 
-Version et changelog viennent de `scripts/next-version.sh` et `scripts/release-notes.sh`, les mêmes que `tag.yml` :
-la version annoncée dans la PR est celle qui sera publiée.
-
-Jeton : une PR créée avec le `GITHUB_TOKEN` par défaut ne déclenche pas les checks, pourtant obligatoires pour
-fusionner. `./scripts/setup-github.sh` demande un jeton *fine-grained* limité au dépôt
-(**Pull requests : Read and write**, **Contents : Read**) et l'enregistre dans le secret `RELEASE_PR_TOKEN`.
-Sans jeton, il autorise les Actions à créer des PR : la PR de release s'ouvre, mais ses checks ne se lancent
-qu'après une action humaine dessus (modifier le titre, fermer/rouvrir).
+La version annoncée dans la PR est celle qui sera publiée : même calcul à la création de la PR et au tag.
+Aucun jeton à configurer : les checks requis sont ceux du dernier commit de `develop`, déjà lancés par le push.
 
 ### Tags automatiques
 
-À chaque push sur `main`, le workflow `.github/workflows/tag.yml` lit les commits depuis le dernier tag `vX.Y.Z` et crée le suivant :
+À chaque push sur `main`, `.github/workflows/release.yml` lit les commits depuis le dernier tag `vX.Y.Z` et crée le suivant :
 
 | Commits depuis le dernier tag                  | Tag              |
 |------------------------------------------------|------------------|
@@ -126,34 +120,34 @@ qu'après une action humaine dessus (modifier le titre, fermer/rouvrir).
 | sinon au moins un `fix` ou `perf`              | PATCH (`v1.1.1`) |
 | uniquement `docs`, `chore`, `refactor`…        | pas de tag       |
 
-Le workflow compile et teste avec `-Drevision=X.Y.Z`, pousse le tag, puis publie la GitHub Release avec le jar
-et le même changelog que la PR de release.
+Puis il compile et teste avec `-Drevision=X.Y.Z` et publie la GitHub Release avec le jar et le même changelog que la PR de livraison.
 Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
 
-Tout ce qui suit se configure en une commande, par un admin du dépôt (idempotent, `--dry-run` pour prévisualiser) :
+Tout ce qui suit se configure en une commande, par un admin du dépôt, depuis ce dépôt
+(relançable sans risque, `--dry-run` pour prévisualiser ; `<repogarde>` = clone de repogarde) :
 
 ```bash
-./scripts/setup-github.sh
+<repogarde>/bin/proteger --checks "repogarde build"
 ```
 
-`main` et `develop` sont en lecture seule (règle de dépôt « branches protégées ») :
-- modification uniquement par Pull Request, pour tout le monde (push direct refusé)
-- les checks `conventions` (nom de branche, cible, titre de PR, messages de commit) et `build` (CI) doivent passer
+`main` et `develop` sont en lecture seule (ruleset « repogarde ») :
+- modification uniquement par Pull Request (push direct refusé)
+- les checks `repogarde` (nom de branche, cible, titre de PR, messages de commit, secrets, formatage) et `build` (CI) doivent passer
 - force push et suppression interdits
 - méthodes de fusion : `develop` ← squash (merge commit pour `release/*` et `hotfix/*`) ; `main` ← merge commit uniquement
 
-Les tags `v*` sont réservés au workflow `tag.yml` (règle de dépôt « tags de version ») : création, modification et suppression manuelles refusées.
+Les tags `v*` sont réservés au workflow de release : création, modification et suppression manuelles refusées.
 
 La branche par défaut est `develop` : les PR s'y ouvrent par défaut.
-La branche source d'une PR fusionnée est supprimée par `.github/workflows/cleanup-branches.yml`
+La branche source d'une PR fusionnée est supprimée par `.github/workflows/nettoyage-branches.yml`
 (sauf `main`, `develop` et une branche encore source d'une autre PR ouverte, cas de `release/*` et `hotfix/*`).
 Le titre de la PR suit la convention de commit : il devient le message du commit en cas de squash.
 
-PR ouverte vers la mauvaise cible (typiquement le bouton « Compare & pull request », qui vise la branche par défaut) :
-le check `conventions` la corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermée ;
-sinon → redirigée vers la bonne branche, avec un titre recalculé s'il est invalide (`scripts/pr-title.sh`).
+PR ouverte vers la mauvaise cible (typiquement le bouton « Compare & pull request ») : le check `repogarde`
+la corrige au lieu d'échouer. Doublon d'une PR bien ciblée → fermée ; sinon → reciblée vers la bonne branche,
+avec un titre recalculé s'il est invalide (commit le plus impactant).
 
 ## Convention de commit
 
