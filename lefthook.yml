@@ -1,0 +1,6 @@
+# Hooks git du projet : règles repogarde (version figée), installés au premier
+# ./mvnw si lefthook est présent (ou : lefthook install).
+remotes:
+  - git_url: https://github.com/SimBienvenueHoulBoumi/repogarde
+    ref: v2.6.1
+    configs: [lefthook-remote.yml]

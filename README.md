@@ -11,11 +11,12 @@ fusionner une PR (la relecture valide le code) et fusionner la PR de release (le
 ```bash
 git clone git@github.com:SimBienvenueHoulBoumi/premerra-backend-api.git
 cd premerra-backend-api
-./mvnw verify              # build + formatage + tests ; configure aussi git (hooks, modèle de commit)
+./mvnw verify              # build + formatage + tests ; configure aussi git (hooks repogarde, modèle de commit)
 ./mvnw spring-boot:run     # lance l'application
 ```
 
-Prérequis : JDK 21 et, pour ouvrir les PR, [GitHub CLI](https://cli.github.com) (`gh auth login`).
+Prérequis : JDK 21, [lefthook](https://lefthook.dev) pour les hooks git (`brew install lefthook`) et, pour ouvrir les PR,
+[GitHub CLI](https://cli.github.com) (`gh auth login`).
 Sur macOS, les scripts sélectionnent le JDK 21 s'il est installé à côté d'un autre JDK.
 
 ## Au quotidien
@@ -32,13 +33,13 @@ Puis relire la PR sur GitHub et la fusionner (squash). C'est tout.
 
 | Moment               | Ce qui se passe automatiquement                                                   |
 |----------------------|-----------------------------------------------------------------------------------|
-| `git commit`         | Code Java reformaté et ré-indexé · message vérifié · refus sur `main`/`develop`    |
+| `git commit`         | Code Java reformaté et ré-indexé · message vérifié · secrets bloqués · refus sur `main`/`develop` |
 | `git push`           | Nom de branche vérifié · refus sur `main`/`develop` · build + tests si le code a changé |
 | `./scripts/pr.sh`    | PR vers la bonne cible (`develop`, ou `main` + `develop` pour `release/*` et `hotfix/*`) avec un titre conforme |
-| PR ouverte           | Checks `build` (compilation, formatage, tests) et `conventions` (branche, cible, titre, commits) |
-| PR mal ciblée        | Corrigée au lieu d'échouer : doublon fermé, sinon redirigée vers la bonne branche |
+| PR ouverte           | Checks `build` (compilation, formatage, tests) et `repogarde` (branche, cible, titre, commits, secrets, formatage) |
+| PR mal ciblée        | Corrigée au lieu d'échouer : doublon fermé, sinon reciblée vers la bonne branche |
 | PR fusionnée         | Branche supprimée sur GitHub, puis en local au `git pull` suivant                 |
-| Fusion sur `develop` | PR de release `develop` → `main` ouverte ou mise à jour : prochaine version + changelog |
+| Fusion sur `develop` | PR de livraison `develop` → `main` ouverte ou mise à jour : prochaine version + changelog |
 | Fusion sur `main`    | Tag `vX.Y.Z` · jar construit à cette version · GitHub Release avec changelog       |
 | Chaque lundi         | Dependabot ouvre des PR groupées de mises à jour vers `develop`                    |
 
@@ -69,44 +70,40 @@ le jar change), une dépendance de test en `build(deps-dev)` et une GitHub Actio
 | `./mvnw verify`                | Build + formatage + tests, comme la CI                     |
 | `./mvnw spotless:apply`        | Formate tout le code                                       |
 | `./scripts/check.sh`           | Build + tests, comme le hook `pre-push`                    |
-| `./scripts/next-version.sh`    | Prochaine version qui serait publiée (rien si aucune)      |
-| `./scripts/release-notes.sh`   | Changelog depuis la dernière version                       |
-| `./scripts/setup-github.sh`    | Configure le dépôt GitHub (admin, une fois ; `--dry-run`)  |
 | `git commit --no-verify`       | Contourne les hooks locaux ; la CI revérifie tout          |
 
 ## Configuration GitHub (admin, une fois)
 
+Avec [repogarde](https://github.com/SimBienvenueHoulBoumi/repogarde) cloné à côté, depuis ce dépôt :
+
 ```bash
-./scripts/setup-github.sh --dry-run   # prévisualiser, rien n'est modifié
-./scripts/setup-github.sh             # appliquer
+../repogarde/bin/proteger --checks "repogarde,build" --dry-run   # prévisualiser, rien n'est modifié
+../repogarde/bin/proteger --checks "repogarde,build"             # appliquer
 ```
 
-Le script est idempotent. Il définit `develop` comme branche par défaut, protège `main` et `develop`
-(PR obligatoire, checks `build` et `conventions`, ni force push ni suppression) et enregistre le jeton
-qui permet à la PR de release de déclencher les checks. Détails : [CONTRIBUTING.md](CONTRIBUTING.md#règles-github).
+Relançable sans risque. Il définit `develop` comme branche par défaut, protège `main` et `develop`
+(PR obligatoire, checks `build` et `repogarde`, ni force push ni suppression) et réserve les tags `v*`
+aux workflows. Aucun jeton à créer. Détails : [CONTRIBUTING.md](CONTRIBUTING.md#règles-github).
 
 ## Questions fréquentes
 
 **Pourquoi aucune nouvelle release ?**
 Seuls `feat`, `fix`, `perf` et les changements cassants créent une version. Des commits `chore`, `ci` ou `docs`
-ne changent pas l'application livrée : pas de PR de release, pas de tag. `./scripts/next-version.sh origin/develop`
-indique ce qui serait publié.
+ne changent pas l'application livrée : pas de version, pas de tag. Le titre de la PR de livraison
+`develop` → `main` indique ce qui serait publié.
 
-**Un check `conventions` est rouge sur ma PR alors qu'elle est correcte.**
+**Un check `repogarde` est rouge sur ma PR alors qu'elle est correcte.**
 Souvent une seconde PR ouverte sur la même branche vers `main` (bouton « Compare & pull request »). Les checks
 sont attachés au commit : l'échec de l'une s'affiche sur l'autre. Ouvrir les PR avec `./scripts/pr.sh`.
 
 **Ma PR a été fermée ou redirigée automatiquement.**
-Elle visait la mauvaise branche. Doublon d'une PR bien ciblée : fermée ; sinon : redirigée, avec un titre corrigé.
-
-**Le commit est refusé : « Fichiers reformatés mais en partie indexés ».**
-Un fichier ajouté en partie (`git add -p`) a dû être reformaté. Vérifier le résultat, puis `git add` le fichier.
+Elle visait la mauvaise branche. Doublon d'une PR bien ciblée : fermée ; sinon : reciblée, avec un titre corrigé.
 
 **« Aucun changement de code : tests ignorés » au push.**
 Normal : les tests ne tournent que si `src/`, `pom.xml` ou `.mvn/` changent. La CI les lance toujours.
 
 **Une branche locale n'a pas été supprimée après `git pull`.**
-Son travail n'est pas dans `develop` : elle est signalée, jamais supprimée. `git branch -D <branche>` si c'est voulu.
+Son travail n'est pas dans la branche courante : elle est conservée. `git branch -D <branche>` si c'est voulu.
 
 ## Contribuer
 
@@ -116,5 +113,5 @@ Hiérarchie des branches, releases, hotfix, convention de commit : [CONTRIBUTING
 ## Adapter à une autre techno
 
 Seuls ces fichiers dépendent de Java/Maven : `scripts/env.sh`, `scripts/format.sh`, `scripts/check.sh`,
-`pom.xml`, `.github/workflows/ci.yml`, l'étape de build de `.github/workflows/tag.yml`
-et l'écosystème `maven` de `.github/dependabot.yml`. Hooks, conventions, versions et releases restent identiques.
+`pom.xml`, `.github/workflows/ci.yml`, le job `jar` de `.github/workflows/release.yml`
+et l'écosystème `maven` de `.github/dependabot.yml`. Hooks, conventions, versions et releases (repogarde) restent identiques.

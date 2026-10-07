@@ -1,0 +1,55 @@
+# Versions et releases (repogarde, mode tag) — voir CONTRIBUTING.md :
+#   - merge sur develop : PR de livraison develop → main tenue à jour
+#     (titre « chore(release): vX.Y.Z », notes) ;
+#   - merge sur main : tag vX.Y.Z, jar construit à cette version et release GitHub.
+name: release
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    uses: SimBienvenueHoulBoumi/repogarde/.github/workflows/release-auto.yml@v2
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      mode: tag
+
+  jar:
+    needs: release
+    if: needs.release.outputs.release_created == 'true'
+    # Publication du jar soumise à approbation (environnement « production »)
+    environment: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # joindre le jar à la release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag_name }}
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build et tests à la version publiée
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: ./mvnw -B -ntp verify -Drevision="$VERSION"
+
+      - name: Joindre le jar à la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag_name }}
+        run: gh release upload "$TAG" target/*.jar
