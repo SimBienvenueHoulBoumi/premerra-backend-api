@@ -120,7 +120,7 @@ Aucun jeton à configurer : les checks requis sont ceux du dernier commit de `de
 | sinon au moins un `fix` ou `perf`              | PATCH (`v1.1.1`) |
 | uniquement `docs`, `chore`, `refactor`…        | pas de tag       |
 
-Puis il compile et teste avec `-Drevision=X.Y.Z` et publie la GitHub Release avec le jar et le même changelog que la PR de livraison.
+Puis, après approbation de l'environnement `production` (un clic sur le run), il compile et teste avec `-Drevision=X.Y.Z` et joint le jar à la GitHub Release, qui porte le même changelog que la PR de livraison.
 Ne jamais créer de tag à la main. Nommer `release/<X.Y.Z>` avec la version que le workflow calculera.
 
 ## Règles GitHub
@@ -129,7 +129,7 @@ Tout ce qui suit se configure en une commande, par un admin du dépôt, depuis c
 (relançable sans risque, `--dry-run` pour prévisualiser ; `<repogarde>` = clone de repogarde) :
 
 ```bash
-<repogarde>/bin/proteger --checks "repogarde build"
+<repogarde>/bin/proteger --checks "repogarde,build"
 ```
 
 `main` et `develop` sont en lecture seule (ruleset « repogarde ») :

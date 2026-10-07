@@ -77,8 +77,8 @@ le jar change), une dépendance de test en `build(deps-dev)` et une GitHub Actio
 Avec [repogarde](https://github.com/SimBienvenueHoulBoumi/repogarde) cloné à côté, depuis ce dépôt :
 
 ```bash
-../repogarde/bin/proteger --checks "repogarde build" --dry-run   # prévisualiser, rien n'est modifié
-../repogarde/bin/proteger --checks "repogarde build"             # appliquer
+../repogarde/bin/proteger --checks "repogarde,build" --dry-run   # prévisualiser, rien n'est modifié
+../repogarde/bin/proteger --checks "repogarde,build"             # appliquer
 ```
 
 Relançable sans risque. Il définit `develop` comme branche par défaut, protège `main` et `develop`
