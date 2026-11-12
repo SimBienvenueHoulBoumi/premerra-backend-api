@@ -1,0 +1,37 @@
+# Règles repogarde en CI, non contournables (les hooks locaux le sont avec
+# --no-verify) : messages de commit et titre de PR, nom et cible de branche,
+# secrets, formatage. Une PR mal ciblée est reciblée et un titre non conforme
+# corrigé automatiquement (fix-pr). Build et tests : workflow ci.
+name: repogarde
+
+on:
+  pull_request:
+    # edited : revérifie quand le titre ou la cible de la PR change
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write # fix-pr : recibler la PR, corriger son titre
+
+jobs:
+  repogarde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # messages de commit et fichiers modifiés depuis la base
+
+      # Formatage vérifié avec l'outil du projet (Spotless, via scripts/format.sh)
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - uses: SimBienvenueHoulBoumi/repogarde@v2
+        with:
+          checks: commits branch secrets format
+          strict: true
+          fix-pr: true

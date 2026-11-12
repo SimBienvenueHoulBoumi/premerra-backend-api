@@ -97,7 +97,7 @@
 	</build>
 
 	<profiles>
-		<!-- Active les hooks git au premier build : aucune commande d'installation à retenir après un clone -->
+		<!-- Réglages git au premier build (hooks repogarde, prune, modèle de commit) : rien à retenir après un clone -->
 		<profile>
 			<id>git-hooks</id>
 			<activation>
@@ -112,18 +112,20 @@
 						<artifactId>exec-maven-plugin</artifactId>
 						<version>${exec-maven-plugin.version}</version>
 						<executions>
+							<!-- Hooks repogarde (lefthook.yml) : ancien core.hooksPath .githooks retiré, puis
+							     hooks installés au premier build si lefthook
+							     est présent, sinon simple rappel ; le build n'échoue jamais pour ça -->
 							<execution>
-								<id>git-hooks-path</id>
+								<id>git-hooks</id>
 								<phase>initialize</phase>
 								<goals>
 									<goal>exec</goal>
 								</goals>
 								<configuration>
-									<executable>git</executable>
+									<executable>sh</executable>
 									<arguments>
-										<argument>config</argument>
-										<argument>core.hooksPath</argument>
-										<argument>.githooks</argument>
+										<argument>-c</argument>
+										<argument>[ "$(git config --local core.hooksPath)" = .githooks ] &amp;&amp; git config --local --unset core.hooksPath; if command -v lefthook &gt;/dev/null; then lefthook install &gt;/dev/null 2&gt;&amp;1 || true; else echo "ℹ Hooks repogarde : installer lefthook (brew, npm, scoop…) puis relancer le build. Voir CONTRIBUTING.md."; fi</argument>
 									</arguments>
 								</configuration>
 							</execution>
