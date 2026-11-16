@@ -30,7 +30,7 @@ jobs:
           java-version: 21
           cache: maven
 
-      - uses: SimBienvenueHoulBoumi/repogarde@v2
+      - uses: SimBienvenueHoulBoumi/repogarde@v3
         with:
           checks: commits branch secrets format
           strict: true
